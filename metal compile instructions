@@ -1,0 +1,10 @@
+export PATH="$PATH:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/usr/bin"
+
+Compile .metal file into .air
+$: metal -std=osx-metal1.1 -o shader.air shader.metal
+
+Archive .air into .metal-ar
+$: metal-ar r shader.metal-ar shader.air
+
+Make .metallib from metal-ar
+$: metallib -o shader.metallib shader.metal-ar
