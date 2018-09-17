@@ -2,26 +2,26 @@
 #include <Metal/Metal.h>
 #include <MetalKit/MetalKit.h>
 
-typedef struct
-{
-    // Positions in pixel space
-    // (e.g. a value of 100 indicates 100 pixels from the center)
-    vector_float2 position;
-
-    // Floating-point RGBA colors
-    vector_float4 color;
-} AAPLVertex;
-
 NSString *shaders = @"\
 #include <metal_stdlib>\n\
 using namespace metal;\n\
 \
-vertex float4 vertexShader(uint vertexID [[vertex_id]], constant float2 *vertices){\n\
-    return float4(vertices[vertexID], 0, 1);\n\
+typedef struct{\n\
+    float4 pos[[position]];\n\
+    float2 textureCoordinate;\n\
+} VertOutData;\n\
+\
+vertex VertOutData vertexShader(uint vertexID [[vertex_id]], constant float2 *vertices[[buffer(0)]]){\n\
+    VertOutData out;\n\
+    out.pos = float4(vertices[vertexID * 2], 0, 1);\n\
+    out.textureCoordinate = vertices[(vertexID * 2) + 1];\n\
+    return out;\n\
 }\n\
 \
-fragment float4 fragmentShader(){\n\
-    return float4(0, 1, 1, 1);\n\
+fragment float4 fragmentShader(VertOutData in [[stage_in]], texture2d<half> colorTexture[[texture(0)]]){\n\
+    constexpr sampler textureSampler (mag_filter::nearest, min_filter::nearest);\n\
+    const half4 colorSample = colorTexture.sample(textureSampler, in.textureCoordinate);\n\
+    return float4(colorSample);\n\
 }\
 ";
 
@@ -94,15 +94,35 @@ int main(int argc, char** argv){
 
 		commandQueue = [device newCommandQueue];
     }
-    float triangleVertices[] = {
-            -1, -1,
-            0, 1,
-            1, -1,
+    float spc = 0.8;
+    float triangleVertices[12][2] = {
+            {-spc, -spc},  {0, 1},   {-spc, spc}, {0, 0}, {spc, spc}, {1, 0},
+            {spc, spc},  {1, 0},  {spc, -spc},  {1, 1},   {-spc, -spc}, {0, 1}
+    };
+
+    unsigned char textureData[] = {
+        255, 0, 0, 255,     0, 255, 0, 255,     0, 0, 255, 255,
+        255, 255, 0, 255,   255, 0, 255, 255,   0, 255, 255, 255,
+        128, 0, 0, 255,     128, 128, 0, 255,   128, 128, 128, 255
     };
 
     id<MTLBuffer> vertBuffer = [device newBufferWithBytes: triangleVertices
                                         length: sizeof(triangleVertices)
                                         options: MTLResourceStorageModeShared];
+    MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
+    textureDescriptor.width = 3;
+    textureDescriptor.height = 3;
+    textureDescriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
+    id<MTLTexture> texture = [device newTextureWithDescriptor: textureDescriptor];
+    MTLRegion region = {
+        {0, 0, 0},
+        {3, 3, 1}
+    };
+    [texture replaceRegion:region
+               mipmapLevel:0
+               withBytes:textureData
+               bytesPerRow:12];
+
 
     width = view.bounds.size.width;
     height = view.bounds.size.height;
@@ -166,10 +186,13 @@ int main(int argc, char** argv){
                                 offset:0
                                atIndex:0];
 
+            [renderEncoder setFragmentTexture:texture
+                                  atIndex:0];
+
             // Draw the 3 vertices of our triangle
             [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
                             vertexStart:0
-                            vertexCount:3];
+                            vertexCount:6];
 
             // Since we aren't drawing anything, indicate we're finished using this encoder
             [renderEncoder endEncoding];
