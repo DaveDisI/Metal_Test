@@ -96,8 +96,12 @@ int main(int argc, char** argv){
     }
     float spc = 0.8;
     float triangleVertices[12][2] = {
-            {-spc, -spc},  {0, 1},   {-spc, spc}, {0, 0}, {spc, spc}, {1, 0},
-            {spc, spc},  {1, 0},  {spc, -spc},  {1, 1},   {-spc, -spc}, {0, 1}
+            {-spc, -spc},  {0, 1},   
+            {-spc, spc}, {0, 0}, 
+            {spc, spc}, {1, 0},
+            {spc, spc},  {1, 0},  
+            {spc, -spc},  {1, 1},   
+            {-spc, -spc}, {0, 1}
     };
 
     unsigned char textureData[] = {
@@ -203,6 +207,7 @@ int main(int argc, char** argv){
 
         // Finalize rendering here and submit the command buffer to the GPU
         [commandBuffer commit];
+        [view draw];
     }
 
     [pool release];
